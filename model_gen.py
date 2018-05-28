@@ -9,64 +9,24 @@ from sklearn.svm import SVC
 from matplotlib.image import imread
 
 import config
-from features import get_hog_features, bin_spatial, color_hist
-
-# Define a function to extract features from a list of images
-# Have this function call bin_spatial() and color_hist()
-def extract_features(fname):
-
-    features = []
-    # Read in each one by one
-
-    image = imread(fname)
-    color_space = config.COL_SPACE
-    # apply color conversion if other than 'RGB'
-    if color_space != 'RGB':
-        if color_space == 'HSV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-        elif color_space == 'LUV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
-        elif color_space == 'HLS':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-        elif color_space == 'YUV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
-        elif color_space == 'YCrCb':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
-    else: feature_image = np.copy(image)
-
-
-    if config.SPATIAL_FEAT:
-        spatial_features = bin_spatial(feature_image)
-        features.append(spatial_features)
-    if config.HIST_FEAT:
-        # Apply color_hist()
-        hist_features = color_hist(feature_image)
-        features.append(hist_features)
-    if config.HOG_FEAT:
-    # Call get_hog_features() with vis=False, feature_vec=True
-        hog_channel = config.HOG_CHANNEL
-        if hog_channel == 'ALL':
-            hog_features = []
-            for channel in range(feature_image.shape[2]):
-                hog_features.append(get_hog_features(feature_image[:,:,channel]))
-            hog_features = np.ravel(hog_features)        
-        else:
-            hog_features = get_hog_features(feature_image[:,:,hog_channel])
-        # Append the new feature vector to the features list
-        features.append(hog_features)
-    return np.concatenate(features)
+from features import extract_features, convert_color, color_scale
 
 def generate_data():
 
     def extract(zipfname):
-        with ZipFile(config.VEH_ZIP) as veh_zip:
-            contents = veh_zip.infolist()
+        with ZipFile(zipfname) as zipfile:
+            contents = zipfile.infolist()
             X = []
             for zfile in contents:
                 if zfile.filename.split('.')[-1] == 'png' and \
                         not zfile.filename.split('/')[-1][0] == '.':
-                    with veh_zip.open(zfile.filename) as image:
-                        features = extract_features(image)
+                    with zipfile.open(zfile.filename) as imfile:
+                        image = color_scale(imread(imfile))
+                        feature_image = convert_color(image)
+                        features = extract_features(feature_image, 
+                                config.SPATIAL_FEAT, 
+                                config.HIST_FEAT, 
+                                config.HOG_FEAT)
                     X.append(features)
         return np.array(X)
     
@@ -110,36 +70,33 @@ def get_model():
     pkl_fname = config.PKL_DIR + '/' + config.PKL_TAG + '_model.pkl'
     try:
         with open(pkl_fname, 'rb') as pkl:
-            print('loading cached model')
+            print('model cache found...')
             data = load(pkl)
             return data['svc'], data['X_scaler']
 
     except FileNotFoundError:
-        print('training model')
+        print('no model cache...')
         X_train, X_test, y_train, y_test = get_data()
 
         X_scaler = StandardScaler().fit(X_train)
         X_train_sc = X_scaler.transform(X_train)
         X_test_sc = X_scaler.transform(X_test)
 
-        svc = SVC(verbose=True)
-        svc.fit(X_train_sc, y_train)
-        # param_grid = {'C' : config.C,
-                    # 'kernel' : config.KERNEL}
-        # clf = GridSearchCV(svc, param_grid, verbose=1)
-        # clf.fit(X_train_sc, y_train)
+        svc = SVC(cache_size=config.CACHE_SIZE)
+        param_grid = {'C' : config.C,
+                    'kernel' : config.KERNEL}
+        print('beginning grid search')
+        clf = GridSearchCV(svc, param_grid, verbose=1)
+        clf.fit(X_train_sc[0:config.M], y_train[0:config.M])
+        print('results - score:',clf.best_score_)
+        print('results - params:',clf.best_params_)
         # cache it and return trained model
-        # svc = clf.best_estimator_
+        svc = clf.best_estimator_
         data = {'svc' : svc,
                 'X_scaler' : X_scaler}
-
         with open(pkl_fname, 'wb') as pkl:
             print('caching model')
             dump(data, pkl)
 
-        import pdb; pdb.set_trace()
 
         return svc, X_scaler
-
-get_model()
-
