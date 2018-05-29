@@ -12,13 +12,11 @@ from features import get_hog_features, bin_spatial, color_hist, convert_color, c
 import config
 from model_gen import get_model
 
-def find_candidates(image, scale, svc, X_scaler):
+def find_candidates(image, scale, ystart, ystop, svc, X_scaler):
     
     image = color_scale(image)
     col_conv = convert_color(image)
 
-    ystart=config.Y_START
-    ystop=config.Y_STOP
     search_region = col_conv[ystart:ystop,:,:]
 
     if scale != 1.0:
@@ -90,23 +88,12 @@ def find_candidates(image, scale, svc, X_scaler):
                           ytop_draw+win_draw+ystart))
                 boxes.append(box)
 
-                
     return boxes
 
-def add_heat(heatmap, bbox_list):
-    # Iterate kthrough list of bboxes
-    for box in bbox_list:
-        # Add += 1 for all pixels inside each bbox
-        # Assuming each "box" takes the form ((x1, y1), (x2, y2))
-        heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
-
-    # Return updated heatmap
-    return heatmap# Iterate through list of bboxes
-    
 def apply_threshold(heatmap, threshold):
     heatmap = np.copy(heatmap)
     # Zero out pixels below the threshold
-    heatmap[heatmap <= threshold] = 0
+    heatmap[heatmap < threshold] = 0
     # Return thresholded map
     return heatmap
 
@@ -138,15 +125,16 @@ def draw_boxes(image, boxes):
 svc, X_scaler = get_model()
 def find_cars(image):
     boxes = []
-    for i in range(len(config.SCALES)):
-        print('scale', i, 'of',len(config.SCALES))
-        scale = config.SCALES[i]
-        boxes = boxes + find_candidates(image, scale, svc, X_scaler)
+    for i in range(len(config.BOX_CFGS)):
+        print('config:', i+1, 'of',len(config.BOX_CFGS))
+        scale, ymin, ymax = config.BOX_CFGS[i]
+        boxes = boxes + find_candidates(image, scale, ymin, ymax, svc, X_scaler)
     return boxes
 
 def test_images():
     imfiles = glob(config.TEST_IMAGE_DIR + '/*.jpg')
-    pkl_fname = config.PKL_DIR + '/' + config.PKL_TAG + '_boxes.pkl'
+    pkltag = config.DAT_TAG + '_' + config.MOD_TAG + '_' + config.BOX_TAG
+    pkl_fname = config.PKL_DIR + '/' + pkltag + '_boxes.pkl'
     try:
         with open(pkl_fname, 'rb') as pkl:
             print('loading cached boxes')
@@ -165,33 +153,53 @@ def test_images():
             data = {'boxes' : boxes_dict}
             dump(data, pkl)
         
-    if not exists(config.OUT_DIR + '/' + config.PKL_TAG):
-        mkdir(config.OUT_DIR + '/' + config.PKL_TAG)
+    if not exists(config.OUT_DIR + '/' + pkltag):
+        mkdir(config.OUT_DIR + '/' + pkltag)
 
     for imfile in imfiles:
         image = imread(imfile)
         boxes = boxes_dict[imfile]
         boxes_img = draw_boxes(image, boxes)
         heatmap = np.zeros_like(image[:,:,0])
-        add_heat(heatmap, boxes)
-        heat_thresh = apply_threshold(heatmap, 2)
-        heat_viz = np.clip(heat_thresh, 0, 255)
-        labels = label(heat_thresh)
-        res_img = draw_labeled_bboxes(np.copy(image), labels, heatmap)
+
+        # Iterate kthrough list of bboxes
+        for box in boxes:
+            # Add += 1 for all pixels inside each bbox
+            # Assuming each "box" takes the form ((x1, y1), (x2, y2))
+            heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
+
+        heatmap[heatmap < config.THRESHOLD2] = 0
+        heat2_viz = np.uint8(heatmap/ 30.0 * 160.0)
+        labels_low = label(heatmap)
+        heatmap[heatmap < config.THRESHOLD1] = 0
+        heat1_viz = np.uint8(heatmap/ 30.0 * 160.0)
+        labels_high = label(heatmap)
+        for hi_label in range(1, labels_high[1]+1):
+            hi_inds = (labels_high[0] == hi_label).nonzero()
+            lo_label = labels_low[0][hi_inds[0][0], hi_inds[1][0]]
+
+            lo_inds = (labels_low[0] == lo_label).nonzero()
+            y = np.array(lo_inds[0])
+            x = np.array(lo_inds[1])
+            bbox = ((np.min(x), np.min(y)), 
+                    (np.max(x), np.max(y)))
+            cv2.rectangle(image, bbox[0], bbox[1], (0,0,255), 6)
 
         outname = imfile.split('/')[-1].split('.')[0]
-        common = config.OUT_DIR + '/' + config.PKL_TAG + '/' + outname
+        common = config.OUT_DIR + '/' + pkltag + '/' + outname
 
         print('Writing results to', common + '*')
-        cv2.imwrite(common + '_heat.png', 
-                heat_viz)
+        cv2.imwrite(common + '_heat1.png', 
+                heat1_viz)
+        cv2.imwrite(common + '_heat2.png', 
+                heat2_viz)
         cv2.imwrite(common + '_boxs.png', 
                 cv2.cvtColor(boxes_img, cv2.COLOR_RGB2BGR))
         cv2.imwrite(common + '_res.png', 
-                cv2.cvtColor(res_img, cv2.COLOR_RGB2BGR))
+                cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
-        
-test_images()
+if __name__ == '__main__':
+    test_images()
 
 # image = imread('test_images/test1.jpg')
 # cars = find_cars(image)

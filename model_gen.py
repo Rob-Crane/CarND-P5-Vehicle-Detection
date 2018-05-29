@@ -44,7 +44,7 @@ def generate_data():
                 test_size=0.2, random_state=rand_state)
 
 def get_data():
-    pkl_fname = config.PKL_DIR + '/' + config.PKL_TAG + '_data.pkl'
+    pkl_fname = config.PKL_DIR + '/' + config.DAT_TAG + '_data.pkl'
     try:
         with open(pkl_fname, 'rb') as pkl:
             print('loading cached data')
@@ -67,7 +67,7 @@ def get_data():
 
 def get_model():
 
-    pkl_fname = config.PKL_DIR + '/' + config.PKL_TAG + '_model.pkl'
+    pkl_fname = config.PKL_DIR + '/' + config.DAT_TAG + '_' + config.MOD_TAG + '_model.pkl'
     try:
         with open(pkl_fname, 'rb') as pkl:
             print('model cache found...')
