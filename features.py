@@ -24,6 +24,9 @@ def get_hog_features(img,
                               cells_per_block=(cell_per_block, cell_per_block), 
                               transform_sqrt=True, 
                               visualise=vis, feature_vector=feature_vec)
+    if len(ret) == 0:
+        raise Exception("Invalid HOG settings - returns empty vector")
+
     if vis == True:
         return ret[0], ret[1]
     else:      
@@ -50,8 +53,8 @@ def color_hist(img, bins_range=(0, 256)):
     # Return the individual histograms, bin_centers and feature vector
     return hist_features
 
-def convert_color(image):
-    color_space = config.COL_SPACE
+def convert_color(image, color_space):
+    # color_space = config.COL_SPACE
     # apply color conversion if other than 'RGB'
     if color_space != 'RGB':
         if color_space == 'HSV':
@@ -69,28 +72,32 @@ def convert_color(image):
 
 # Define a function to extract features from a list of images
 # Have this function call bin_spatial() and color_hist()
-def extract_features(image, get_spatial, get_hist, get_hog):
+def extract_features(image, hog_features=None):
 
     features = []
     # Read in each one by one
 
-    if get_spatial:
-        spatial_features = bin_spatial(image)
+    if config.SPATIAL_FEAT:
+        img_conv = convert_color(image, config.SPAT_COL)
+        spatial_features = bin_spatial(img_conv)
         features.append(spatial_features)
-    if get_hist:
-        # Apply color_hist()
-        hist_features = color_hist(image)
+    if config.HIST_FEAT:
+        img_conv = convert_color(image, config.HIST_COL)
+        hist_features = color_hist(img_conv)
         features.append(hist_features)
-    if get_hog:
-    # Call get_hog_features() with vis=False, feature_vec=True
-        hog_channel = config.HOG_CHANNEL
-        if hog_channel == 'ALL':
-            hog_features = []
-            for channel in range(image.shape[2]):
-                hog_features.append(get_hog_features(image[:,:,channel]))
-            hog_features = np.ravel(hog_features)        
+    if config.HOG_FEAT:
+        if hog_features is None:
+            hog_conv = convert_color(image, config.HOG_SPACE)
+            hog_channel = config.HOG_CHANNEL
+            if hog_channel == 'ALL':
+                hog_features = []
+                for channel in range(hog_conv.shape[2]):
+                    hog_features.append(get_hog_features(hog_conv[:,:,channel]))
+                hog_features = np.ravel(hog_features)        
+            else:
+                hog_features = get_hog_features(hog_conv[:,:,hog_channel])
+            # Append the new feature vector to the features list
+            features.append(hog_features)
         else:
-            hog_features = get_hog_features(image[:,:,hog_channel])
-        # Append the new feature vector to the features list
-        features.append(hog_features)
+            features.append(hog_features)
     return np.concatenate(features)

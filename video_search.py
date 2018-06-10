@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from moviepy.editor import VideoFileClip
 from scipy.ndimage.measurements import label
+from pickle import load, dump
 
 import config
 from image_search import find_cars
@@ -45,20 +46,33 @@ class Buffer:
         return bboxes
 
 frame_buffer = None
+cache = {}
 def process_frame(frame):
     global frame_buffer
     if frame_buffer is None:
         frame_buffer = Buffer(frame.shape)
+    
+    boxes = find_cars(frame, frame_buffer.count)
 
-    boxes = find_cars(frame)
+    if config.PRINT_BOXES and \
+            (frame_buffer.count%config.BOX_FREQ) == 0:
+        img_copy = np.copy(frame)
+        for box in boxes:
+            cv2.rectangle(img_copy,
+                    box[0], box[1],
+                    (0,0,255),3) 
+        print('print frame:', frame_buffer.count)
+        cv2.imwrite(config.BOX_DIR + '/' + \
+                'frame{:03d}.png'.format(frame_buffer.count),
+                cv2.cvtColor(img_copy, cv2.COLOR_RGB2BGR))
+    
     frame_buffer.add_heat(boxes)
     bboxes = frame_buffer.get_bboxes()
     for bbox in bboxes:
         cv2.rectangle(frame, bbox[0], bbox[1], (0,0,255), 6)
     return frame
+    
 
-
-clip = VideoFileClip(config.VID_FILE)
+clip = VideoFileClip(config.VID_FILE, audio=False)
 out_clip = clip.fl_image(process_frame)
-outname = config.VID_FILE.split('/')[-1].split('.')[0]
-out_clip.write_videofile(config.OUT_DIR + '/' + outname + '_out.mp4', config.FPS)
+out_clip.write_videofile(config.OUT_DIR + '/' + config.OUT_NAME, config.FPS)
