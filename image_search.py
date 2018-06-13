@@ -12,6 +12,11 @@ from features import get_hog_features, convert_color, color_scale, extract_featu
 import config
 from model_gen import get_model
 
+class PredictionBox:
+    def __init__(self, box, confidence):
+        self.box = box
+        self.confidence = confidence
+
 def find_candidates(image, scale, overlap, xband, yband, svc, X_scaler, _count):
     
     image = color_scale(image)
@@ -74,7 +79,6 @@ def find_candidates(image, scale, overlap, xband, yband, svc, X_scaler, _count):
             features_sc = X_scaler.transform(features.reshape(1,-1))
             prediction = svc.predict(features_sc)
 
-
             if prediction == 1:
                 cv2.imwrite('output_images/cars/' + str(_count) + '_' + str(scale) + '.png',
                         cv2.cvtColor(subimg*255, cv2.COLOR_RGB2BGR))
@@ -86,7 +90,9 @@ def find_candidates(image, scale, overlap, xband, yband, svc, X_scaler, _count):
                           ytop_draw+ystart),
                        (xbox_left+win_draw+xstart,
                           ytop_draw+win_draw+ystart))
-                boxes.append(box)
+                confidence = svc.decision_function(features_sc)
+                pred_box = PredictionBox(box, confidence)
+                boxes.append(pred_box)
     if cars != 0:
         print('!!!', scale, ':', cars)
 

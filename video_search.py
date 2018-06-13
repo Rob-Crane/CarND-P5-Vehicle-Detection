@@ -5,7 +5,7 @@ from scipy.ndimage.measurements import label
 from pickle import load, dump
 
 import config
-from image_search import find_cars
+from image_search import find_cars, PredictionBox
 
 
 class Buffer:
@@ -19,9 +19,11 @@ class Buffer:
 
     def add_heat(self, boxes):
         frame_heat = np.zeros(shape=self.frame_shape)
-        for box in boxes:
+        for pred_box in boxes:
+            box = pred_box.box
+            confidence = pred_box.confidence
             frame_heat[box[0][1]:box[1][1], 
-                    box[0][0]:box[1][0]] += 1
+                    box[0][0]:box[1][0]] += confidence
         n = self.count % config.BUFF_SIZE
         self.heat_buffer[n] = frame_heat
         self.count += 1
@@ -57,7 +59,8 @@ def process_frame(frame):
     if config.PRINT_BOXES and \
             (frame_buffer.count%config.BOX_FREQ) == 0:
         img_copy = np.copy(frame)
-        for box in boxes:
+        for pred_box in boxes:
+            box = pred_box.box
             cv2.rectangle(img_copy,
                     box[0], box[1],
                     (0,0,255),3) 

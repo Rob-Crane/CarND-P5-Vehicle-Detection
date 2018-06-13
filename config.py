@@ -1,13 +1,13 @@
 # Training data
 VEH_ZIP='/media/sf_Debian_Share/vehicles.zip'
 NON_ZIP='/media/sf_Debian_Share/non-vehicles.zip'
-M = 15000
+M = 16000
 # Caching options
 PKL_DIR = 'data'
 
 
 ### Data Options ###
-DAT_TAG = 'dat2'
+DAT_TAG = 'dat4'
 
 # Color binning
 SPAT_COL = 'HLS'
@@ -16,9 +16,9 @@ HIST_BINS = 16
 HIST_COL='HSV'
 
 # HOG options
-HOG_SPACE = 'HSV'
-ORIENT = 12
-HOG_CHANNEL = 1
+HOG_SPACE = 'YUV'
+ORIENT = 9
+HOG_CHANNEL = 'ALL'
 SPATIAL_FEAT = True
 HIST_FEAT = True
 HOG_FEAT = True
@@ -35,13 +35,13 @@ C = [0.01]
 ### Searching Options ###
 BOX_TAG = 'box0'
 WINDOW_SIZE=64
-THRESHOLD1 = 30
+THRESHOLD1 = 20
 THRESHOLD2 = 10
-BOX_CFGS = [(1.5, 0.7, (500, 1280), (360, 550)), # (scale, overlap,(x_min, x_max),(y_min, y_max))
-            (2.0, 0.7, (500, 1280), (390, 560))]
+BOX_CFGS = [(1.5, 0.8, (650, 1280), (360, 550)), # (scale, overlap,(x_min, x_max),(y_min, y_max))
+            (2.0, 0.8, (650, 1280), (390, 560))]
 #(1, 0.8, (530, 830), (380, 474)),
 # Video Options
-BUFF_SIZE = 10
+BUFF_SIZE = 50
 VID_FILE = 'project_video.mp4'
 
 PRINT_BOXES = True
@@ -51,5 +51,5 @@ BOX_FREQ = 5
 # Other
 TEST_IMAGE_DIR = 'test_images'
 OUT_DIR = 'output_images'
-OUT_NAME = 'proj2.mp4'
+OUT_NAME = 'project_video_11.mp4'
 FPS=24
