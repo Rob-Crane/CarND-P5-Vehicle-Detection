@@ -36,5 +36,4 @@ Several techniques were found by my investigation to improve performance:
 * Lowering the SVC `C` parameter to 0.01 reduced in lower test set accuracy but improved performance (generalization) on the test video.
 * Region of interest filtering and search box scaling signifciantly reduced video noise and improved video processing times.
 * The circular buffer and thresholding technique described above improved resiliency against transient noise.
-
 Submission video may be viewed [here](https://youtu.be/DosyurLAtis).
